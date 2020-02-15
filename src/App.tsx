@@ -1,24 +1,21 @@
 import React from 'react';
-import logo from './logo.svg';
-import './App.css';
 
 function App() {
+	const [theme, setTheme] = React.useState("light")
+	React.useEffect(() => {
+		if (window.matchMedia &&
+			window.matchMedia('(prefers-color-scheme: dark)').matches) {
+			setTheme("dark")
+		}
+	}, [theme, setTheme])
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className={`App ${theme}`}>
+			<h1>Hey it's me, David (<code>Katakuraa</code>)</h1>
+			<p>Can you please leave my website alone?!</p>
+			<p>Thanks!</p>
+			<br />
+			<p>Last Modified at <strong>Sun, 03:12 Feb 16, 2020</strong></p>
     </div>
   );
 }
