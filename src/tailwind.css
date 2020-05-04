@@ -1,3 +1,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+	--color-background: theme("colors.gray.100");
+	--color-primary: theme("colors.blue.800");
+	--color-secondary: theme("colors.gray.200");
+	--color-secondary-soft: #e2e8f0;
+	--color-default: theme("colors.white");
+	--color-warning: theme("colors.orange.200");
+}
+
+.theme-dark {
+	--color-background: theme("colors.gray.800");
+	--color-primary: theme("colors.gray.200");
+	--color-secondary: theme("colors.gray.800");
+	--color-secondary-soft: theme("colors.gray.900");
+	--color-default: theme("colors.gray.700");
+	--color-warning: theme("colors.gray.900");
+}
