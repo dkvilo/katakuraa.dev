@@ -1,24 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 
-import DraggableCard from "./components/DraggableCard";
-import Footer from "./components/Footer";
-import Header from "./components/Header";
-import EasterEgg from "./components/EasterEgg";
-
-import { IDraggableCardProps } from "./interfaces";
+import Astronaut from "./components/Astronaut";
 
 function App() {
-	const [userData] = useState<IDraggableCardProps>(() =>
-		require("./dummy/user.json")
-	);
-
 	return (
-		<>
-			<Header />
-			<EasterEgg />
-			<DraggableCard {...userData} />
-			<Footer />
-		</>
+    <Astronaut />
 	);
 }
 

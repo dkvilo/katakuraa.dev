@@ -14,6 +14,7 @@
     "react-dom": "^16.12.0",
     "react-draggable": "^4.2.0",
     "react-scripts": "3.4.0",
+    "three": "^0.125.2",
     "typescript": "~3.7.2"
   },
   "scripts": {
@@ -21,8 +22,8 @@
     "build": "yarn run build:css && react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "build:css": "postcss src/tailwind.css -o src/main.css",
-    "watch:css": "postcss src/tailwind.css -o src/main.css --watch"
+    "build:css": "postcss src/styles.css -o src/main.css",
+    "watch:css": "postcss src/styles.css -o src/main.css --watch"
   },
   "eslintConfig": {
     "extends": "react-app"

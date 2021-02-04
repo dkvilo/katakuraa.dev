@@ -1,0 +1,86 @@
+/* @tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+	--color-background: theme("colors.gray.100");
+	--color-primary: theme("colors.blue.800");
+	--color-secondary: theme("colors.gray.200");
+	--color-secondary-soft: #e2e8f0;
+	--color-default: theme("colors.white");
+	--color-warning: theme("colors.orange.200");
+}
+
+.theme-dark {
+	--color-background: theme("colors.gray.800");
+	--color-primary: theme("colors.gray.200");
+	--color-secondary: theme("colors.gray.800");
+	--color-secondary-soft: theme("colors.gray.900");
+	--color-default: theme("colors.gray.700");
+	--color-warning: theme("colors.gray.900");
+} */
+
+@font-face {
+  font-family: kvilo;
+  src: url("/font/xirod/xirod.ttf");
+}
+
+.app-shell {
+  position: absolute;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.app-shell h1 {
+  font-size: 3rem;
+  color: #ffffff;
+  font-weight: bolder;
+  text-shadow: -2px 2px 4px #222222;
+  font-family: kvilo;
+  margin-bottom: 30px;
+  cursor: pointer;
+}
+
+#loading-screen {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #000000;
+  opacity: 1;
+  transition: 1s opacity;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#loading-screen h1 {
+  font-size: 2rem;
+  color: #ffffff;
+  font-weight: bolder;
+  text-shadow: -2px 2px 4px #222222;
+  font-family: kvilo;
+}
+
+#loading-screen.fade-out {
+  opacity: 0;
+}
+
+@media only screen and (max-width: 600px) {
+  #loading-screen h1, .app-shell h1 {
+    font-size: 2.3rem;
+    margin-bottom: 20vh;
+  }
+}
+
+@media only screen and (max-width :330px) {
+  #loading-screen h1, .app-shell h1 {
+    font-size: 2rem;
+    margin-bottom: 20vh;
+  }
+}
