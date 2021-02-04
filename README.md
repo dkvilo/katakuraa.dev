@@ -4,6 +4,6 @@
 
 https://katakuraa.dev/?hef=github
 
-[Vanila Js Version (Repo)](https://github.com/dkvilo/astronaut-in-space)
+[Vanilla Js Version (Repo)](https://github.com/dkvilo/astronaut-in-space)
 
 
