@@ -1,8 +1,8 @@
-// 
-// 
+//
+//
 // this file requires optimization
-// 
-// 
+//
+//
 
 import React, { memo, useRef, useEffect, useCallback } from "react";
 
@@ -17,6 +17,12 @@ import {
 	HemisphereLight,
 	DirectionalLight,
 	LoadingManager,
+	UniformsUtils,
+	PlaneBufferGeometry,
+	Mesh,
+	MeshBasicMaterial,
+	Shader,
+	Vector2,
 } from "three";
 
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
@@ -24,210 +30,321 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
 import { GlitchPass } from "three/examples/jsm/postprocessing/GlitchPass";
 import { FilmPass } from "three/examples/jsm/postprocessing/FilmPass";
+import { ImprovedNoise } from "three/examples/jsm/math/ImprovedNoise";
+
+import { vertex, fragment, parsVertex, parseFragment } from "../shaders";
 
 type ent_t = { obj: Group };
 
+type atmosphere_t = {
+	color: number;
+	density: number;
+	nearColor: number;
+	noiseSpeed: number;
+	noiseFreq: number;
+	noiseImpact: number;
+};
+
 function Astronaut(): JSX.Element {
+	const threeRenderer = useRef<HTMLDivElement>(null);
+	const loadingScreen = useRef<HTMLDivElement>(null);
+	const bgSound = useRef<HTMLAudioElement>(null);
 
-  const threeRenderer = useRef<HTMLDivElement>(null);
-  const loadingScreen = useRef<HTMLDivElement>(null);
-  const bgSound = useRef<HTMLAudioElement>(null);
+	useEffect(() => {
+		let renderer: WebGLRenderer;
+		let scene: Scene;
+		let camera: PerspectiveCamera;
+		let composer: EffectComposer;
+		let mixer: AnimationMixer;
 
+		const worldWidth = 256;
+		const worldDepth = 256;
 
-  useEffect(() => {
+		const atmosphere: atmosphere_t = {
+			color: 0x70a1ff,
+			density: 0.0025,
+			nearColor: 0xffffff,
+			noiseSpeed: 100,
+			noiseFreq: 2.0012,
+			noiseImpact: 0.5,
+		};
 
-    let renderer: WebGLRenderer;
-    let scene: Scene;
-    let camera: PerspectiveCamera;
-    let composer: EffectComposer;
-    let mixer: AnimationMixer;
+		const EntityManager: [ent_t] | [] = [];
 
-    const EntityManager: [ent_t] | [] = [];
+		// Asset Load manager
+		const loadingManager: LoadingManager = new LoadingManager(() => {
+			(loadingScreen as any).current.classList.add("fade-out");
+			// Play Audio
+			if (bgSound.current) {
+				bgSound.current.play();
+			}
+			(loadingScreen as any).current.addEventListener(
+				"transitionend",
+				(event: any) => {
+					event.target.remove();
+				}
+			);
+		});
 
-    // Asset Load manager
-    const loadingManager: LoadingManager = new LoadingManager(() => {
-      (loadingScreen as any).current.classList.add("fade-out");
-      // Play Audio
-      if (bgSound.current) {
-        bgSound.current.play();
-      }
-      (loadingScreen as any).current.addEventListener("transitionend", (event: any) => {
-        event.target.remove();
-      });
-    });
+		function loadAnimatedObject(): void {
+			const loader: FBXLoader = new FBXLoader();
 
-    function loadAnimatedObject(): void {
-      const loader: FBXLoader = new FBXLoader();
+			const load_a = (fbx: Group) => {
+				fbx.scale.setScalar(0.1);
 
-      const load_a = (fbx: Group) => {
-        fbx.scale.setScalar(0.1);
+				const animationLoader: FBXLoader = new FBXLoader(loadingManager);
+				animationLoader.load(
+					"/objects/astronaut/anim/Floating.fbx",
+					(anim: any) => {
+						mixer = new AnimationMixer(fbx);
+						mixer.clipAction(anim.animations[0]).play();
+					}
+				);
 
-        const animationLoader: FBXLoader = new FBXLoader(loadingManager);
-        animationLoader.load(
-          "/objects/astronaut/anim/Floating.fbx",
-          (anim: any) => {
-            mixer = new AnimationMixer(fbx);
-            mixer.clipAction(anim.animations[0]).play();
-          }
-        );
+				fbx.scale.set(0.5, 0.5, 0.5);
+				fbx.position.set(0, 0, 0);
 
-        fbx.scale.set(0.5, 0.5, 0.5);
-        fbx.position.set(0, 0, 0);
+				(EntityManager as [ent_t]).push({
+					obj: fbx,
+				});
+			};
 
-        (EntityManager as [ent_t]).push({
-          obj: fbx,
-        });
-      };
+			loader.load("/objects/astronaut/anim/Astronaut.fbx", load_a);
+		}
 
-      loader.load("/objects/astronaut/anim/Astronaut.fbx", load_a);
-    }
+		init();
+		animate();
 
-    init();
-    animate();
+		function init() {
+			const { innerWidth, innerHeight } = window;
+			// Create Perspective camera
+			camera = new PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 1000);
+			// configure camera position
+			camera.position.set(0, 0.4, 100);
 
-    function init() {
-      const { innerWidth, innerHeight } = window;
-      // Create Perspective camera
-      camera = new PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 1000);
-      // configure camera position
-      camera.position.set(0, 0.4, 100);
+			// Create New Scene
+			scene = new Scene();
 
-      // Create New Scene
-      scene = new Scene();
+			// Set dark background
+			scene.background = new Color(0x222222);
 
-      // Set dark background
-      scene.background = new Color(0x222222);
+			// Add Grind on the scene
+			scene.add(new GridHelper(20, 20));
 
-      // Add Grind on the scene
-      scene.add(new GridHelper(20, 20));
+			const data = generateHeight(worldWidth, worldDepth);
+			const geometry = new PlaneBufferGeometry(
+				7500,
+				7500,
+				worldWidth - 1,
+				worldDepth - 1
+			);
+			geometry.rotateX(Math.PI / 2);
 
-      // Create ambient light
-      const ambient: HemisphereLight = new HemisphereLight(
-        0xbbbbff,
-        0x886666,
-        0.75
-      );
-      ambient.position.set(-0.5, 0.75, -1);
-      scene.add(ambient);
+			const vertices: ArrayLike<number> = geometry.attributes.position.array;
+			for (let i: number = 0, j = 0, l = vertices.length; i < l; i++, j += 3) {
+				(vertices[j + 1] as any) = data[i] * 10;
+			}
 
-      // Create the sun :)
-      const light: DirectionalLight = new DirectionalLight(0xffffff, 1.75);
-      light.position.set(1, 0.75, 0.5);
-      scene.add(light);
+			const mesh = new Mesh(
+				geometry,
+				new MeshBasicMaterial({ color: new Color(0xefd1b5) })
+			);
 
-      loadAnimatedObject();
+			(mesh.material as any).onBeforeCompile = (shader: Shader) => {
+				shader.vertexShader = shader.vertexShader.replace(
+					`#include <fog_pars_vertex>`,
+					parsVertex
+				);
+				shader.vertexShader = shader.vertexShader.replace(
+					`#include <fog_vertex>`,
+					vertex
+				);
+				shader.fragmentShader = shader.fragmentShader.replace(
+					`#include <fog_pars_fragment>`,
+					parseFragment
+				);
+				shader.fragmentShader = shader.fragmentShader.replace(
+					`#include <fog_fragment>`,
+					fragment
+				);
 
-      // Render Scene
-      renderer = new WebGLRenderer({
-        antialias: true,
-      });
+				const uniforms = {
+					fogNearColor: { value: new Color(atmosphere.nearColor) },
+					fogNoiseFreq: { value: atmosphere.noiseFreq },
+					fogNoiseSpeed: { value: atmosphere.noiseSpeed },
+					fogNoiseImpact: { value: atmosphere.noiseImpact },
+					time: { value: 0 },
+				};
 
-      // #####################################
-      //   Basic Post Processing noting fancy
-      // #####################################
+				shader.uniforms = UniformsUtils.merge([shader.uniforms, uniforms]);
+			};
 
-      // Create effect composer
-      composer = new EffectComposer(renderer);
+			scene.add(mesh);
 
-      // add render pass
-      const renderPass = new RenderPass(scene, camera);
-      composer.addPass(renderPass);
+			// Create ambient light
+			const ambient: HemisphereLight = new HemisphereLight(
+				0xbbbbff,
+				0x886666,
+				0.75
+			);
+			ambient.position.set(-0.5, 0.75, -1);
+			scene.add(ambient);
 
-      // configure film effect, adds noise and gray scale like old tv
-      const filmPass = new FilmPass(
-        0.85, // noise intensity
-        0.025, // scan line intensity
-        680, // scan line count
-        2 // gray scale
-      );
-      filmPass.renderToScreen = true;
-      composer.addPass(filmPass);
+			// Create the sun :)
+			const light: DirectionalLight = new DirectionalLight(0xffffff, 1.75);
+			light.position.set(1, 0.75, 0.5);
+			scene.add(light);
 
-      // add camera glitch effect
-      const glitchPass = new GlitchPass();
-      composer.addPass(glitchPass);
+			loadAnimatedObject();
 
-      // listen for window resize,
-      // onWindowResize function re-calculates the dims
-      window.addEventListener("resize", onWindowResize, false);
+			// Render Scene
+			renderer = new WebGLRenderer({
+				antialias: true,
+			});
 
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      (threeRenderer as any).current.appendChild(renderer.domElement);
-    }
+			// #####################################
+			//   Basic Post Processing noting fancy
+			// #####################################
 
-    function render(timeElapsed: number) {
-      // constant value
-      const time: number = performance.now() / 5000;
+			// Create effect composer
+			composer = new EffectComposer(renderer);
 
-      // Rotate the scene
-      camera.position.set(
-        Math.sin(time) * 5,
-        // keep the original Y value
-        camera.position.y,
-        Math.cos(time) * 5
-      );
+			// add render pass
+			const renderPass = new RenderPass(scene, camera);
+			composer.addPass(renderPass);
 
-      // get entities form the list and dump them into the scene
-      EntityManager.forEach((entity: ent_t) => {
-        scene.add(entity.obj);
-      });
+			// configure film effect, adds noise and gray scale like old tv
+			const filmPass = new FilmPass(
+				0.85, // noise intensity
+				0.025, // scan line intensity
+				680, // scan line count
+				2 // gray scale
+			);
+			filmPass.renderToScreen = true;
+			composer.addPass(filmPass);
 
-      // stare the specific point on world
-      camera.lookAt(0, 1.5, 0);
+			// add camera glitch effect
+			const glitchPass = new GlitchPass();
+			composer.addPass(glitchPass);
 
-      // Update the animation mixer
-      if (mixer) {
-        mixer.update(timeElapsed * 0.001);
-      }
+			// listen for window resize,
+			// onWindowResize function re-calculates the dims
+			window.addEventListener("resize", onWindowResize, false);
 
-      renderer.render(scene, camera);
-      composer.render();
-    }
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			(threeRenderer as any).current.appendChild(renderer.domElement);
+		}
 
-    // here, oh boy ... here we are calculating elapsed time, does not look pretty but works just fine
-    let pervT: number;
-    function animate() {
-      requestAnimationFrame((t: number) => {
-        if (pervT === null) {
-          pervT = t;
-        }
-        animate();
-        render(t - pervT);
-        pervT = t;
-      });
-    }
+		function render(timeElapsed: number) {
+			// constant value
+			const time: number = performance.now() / 5000;
 
-    function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
+			// Rotate the scene
+			camera.position.set(
+				Math.sin(time) * 5,
+				// keep the original Y value
+				camera.position.y,
+				Math.cos(time) * 5
+			);
 
-  }, [loadingScreen, threeRenderer, bgSound])
+			// get entities form the list and dump them into the scene
+			EntityManager.forEach((entity: ent_t) => {
+				scene.add(entity.obj);
+			});
 
-  const loadResume = useCallback(() => {
+			// stare the specific point on world
+			camera.lookAt(0, 1.5, 0);
+
+			// Update the animation mixer
+			if (mixer) {
+				mixer.update(timeElapsed * 0.001);
+			}
+
+			renderer.render(scene, camera);
+			composer.render();
+		}
+
+		// here, oh boy ... here we are calculating elapsed time, does not look pretty but works just fine
+		let pervT: number;
+		function animate() {
+			requestAnimationFrame((t: number) => {
+				if (pervT === null) {
+					pervT = t;
+				}
+				animate();
+				render(t - pervT);
+				pervT = t;
+			});
+		}
+
+		// Generate random hight based on input
+		function generateHeight(width: number, height: number) {
+			let seed = Math.PI / 4;
+
+			const size = width * height;
+			const data = new Uint8Array(size);
+			const perlin = new ImprovedNoise();
+
+			// override original random function
+			Math.random = function () {
+				const x = Math.sin(seed++) * 10000;
+				return x - Math.floor(x);
+			};
+
+			let quality = 1;
+			const z = Math.random() * 100;
+
+			for (let j = 0; j < 4; j++) {
+				for (let i = 0; i < size; i++) {
+					const coords = new Vector2(i % width, ~~(i / width));
+					data[i] += Math.abs(
+						perlin.noise(coords.x / quality, coords.y / quality, z) *
+							quality *
+							1.75
+					);
+				}
+
+				quality *= 5;
+			}
+			return data;
+		}
+
+		function onWindowResize() {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+			renderer.setSize(window.innerWidth, window.innerHeight);
+		}
+	}, [loadingScreen, threeRenderer, bgSound]);
+
+	const loadResume = useCallback(() => {
 		window.location.href = encodeURI("David Kviloria - Resume.pdf");
 	}, []);
 
-  return (
-    <>
-      <audio controls={false} loop className="hidden" ref={bgSound}>
-				<source src="/audio/011100110111000001100001011000110110010100101110011011010111000000110011.webm" type="audio/webm" />
-				<source src="/audio/011100110111000001100001011000110110010100101110011011010111000000110011.mp4" type="audio/mp4" />
+	return (
+		<>
+			<audio controls={false} loop className="hidden" ref={bgSound}>
+				<source
+					src="/audio/011100110111000001100001011000110110010100101110011011010111000000110011.webm"
+					type="audio/webm"
+				/>
+				<source
+					src="/audio/011100110111000001100001011000110110010100101110011011010111000000110011.mp4"
+					type="audio/mp4"
+				/>
 			</audio>
-      <div ref={loadingScreen} id="loading-screen">
-        <h1>Loading ...</h1>
-      </div>
-      <div className="app-shell">
-        {/* :) yeap i have h1 as a button */}
-        <h1 onClick={loadResume} className="cursor-pointer">Résumé</h1>
-      </div>
-      <div ref={threeRenderer} />
-    </>
-  )
-
+			<div ref={loadingScreen} id="loading-screen">
+				<h1>Loading ...</h1>
+			</div>
+			<div className="app-shell">
+				{/* :) yeah i have h1 as a button */}
+				<h1 onClick={loadResume} className="cursor-pointer">
+					Résumé
+				</h1>
+			</div>
+			<div ref={threeRenderer} />
+		</>
+	);
 }
-
 
 export default memo(Astronaut);
